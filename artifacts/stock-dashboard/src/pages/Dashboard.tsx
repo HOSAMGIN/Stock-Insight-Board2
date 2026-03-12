@@ -42,6 +42,7 @@ function SectionSkeleton({ count, cols }: { count: number; cols: string }) {
 export default function Dashboard() {
   const [alertDismissed, setAlertDismissed] = useState(false);
   const [lastAlertKey, setLastAlertKey] = useState("");
+  const [testAlertVisible, setTestAlertVisible] = useState(false);
 
   const { data, isLoading, isError, error, isFetching } = useGetStocks({
     query: {
@@ -106,6 +107,12 @@ export default function Dashboard() {
           onDismiss={() => setAlertDismissed(true)}
         />
       )}
+      {testAlertVisible && (
+        <SuperBuyAlert
+          symbols={["SOXL", "TSLL"]}
+          onDismiss={() => setTestAlertVisible(false)}
+        />
+      )}
 
       <div className="absolute inset-0 z-0">
         <img
@@ -138,26 +145,35 @@ export default function Dashboard() {
             </p>
           </motion.div>
 
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="flex items-center gap-2 text-sm font-mono bg-secondary/50 px-4 py-2 rounded-lg border border-white/5"
-          >
-            <Clock
-              className={
-                isFetching
-                  ? "w-4 h-4 text-primary animate-spin"
-                  : "w-4 h-4 text-muted-foreground"
-              }
-            />
-            <span className="text-muted-foreground">LAST UPDATED:</span>
-            <span className="text-foreground">
-              {data?.lastUpdated
-                ? format(new Date(data.lastUpdated), "HH:mm:ss")
-                : "--:--:--"}
-            </span>
-          </motion.div>
+          <div className="flex items-center gap-3 flex-wrap justify-end">
+            <button
+              onClick={() => setTestAlertVisible(true)}
+              className="text-xs font-mono px-3 py-2 rounded-lg border border-green-500/30 bg-green-500/10 text-green-400 hover:bg-green-500/20 transition-colors"
+            >
+              ⚡ 알림 테스트
+            </button>
+
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              className="flex items-center gap-2 text-sm font-mono bg-secondary/50 px-4 py-2 rounded-lg border border-white/5"
+            >
+              <Clock
+                className={
+                  isFetching
+                    ? "w-4 h-4 text-primary animate-spin"
+                    : "w-4 h-4 text-muted-foreground"
+                }
+              />
+              <span className="text-muted-foreground">LAST UPDATED:</span>
+              <span className="text-foreground">
+                {data?.lastUpdated
+                  ? format(new Date(data.lastUpdated), "HH:mm:ss")
+                  : "--:--:--"}
+              </span>
+            </motion.div>
+          </div>
         </header>
 
         {/* Category Sections */}
