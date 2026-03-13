@@ -14,6 +14,7 @@ interface CustomSymbolCardProps {
 export function CustomSymbolCard({ symbol, index, onRemove }: CustomSymbolCardProps) {
   const { data, isLoading, isError } = useGetStock(symbol, {
     query: {
+      queryKey: ['stock', symbol],
       refetchInterval: 60000,
       refetchOnWindowFocus: true,
       retry: 1,
@@ -76,7 +77,6 @@ export function CustomSymbolCard({ symbol, index, onRemove }: CustomSymbolCardPr
   return (
     <div className="relative group/custom">
       <StockCard data={data} index={index} />
-      {/* Remove button overlay */}
       <button
         onClick={() => onRemove(symbol)}
         title="관심 종목에서 제거"
