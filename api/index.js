@@ -6,7 +6,8 @@ const cors = require("cors");
 const https = require("https");
 
 const app = express();
-app.use(cors());
+app.use(cors({ origin: "*", methods: ["GET", "OPTIONS"] }));
+app.options("*", cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
