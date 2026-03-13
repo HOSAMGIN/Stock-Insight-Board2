@@ -8,7 +8,6 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  ReferenceLine,
 } from "recharts";
 import { format } from "date-fns";
 import type { PricePoint } from "@workspace/api-client-react";
@@ -18,6 +17,11 @@ interface BollingerChartProps {
   currentPrice: number;
   currency: string;
   isTouchingLowerBand: boolean;
+  priceColor?: string;
+  bbUpperColor?: string;
+  bbMiddleColor?: string;
+  bbLowerColor?: string;
+  zoomed?: boolean;
 }
 
 function fmtPrice(v: number, currency: string) {
@@ -25,14 +29,23 @@ function fmtPrice(v: number, currency: string) {
   return v.toFixed(2);
 }
 
-export function BollingerChart({ data, currentPrice, currency, isTouchingLowerBand }: BollingerChartProps) {
+export function BollingerChart({
+  data,
+  currentPrice,
+  currency,
+  isTouchingLowerBand,
+  priceColor = "#38bdf8",
+  bbUpperColor = "#818cf8",
+  bbMiddleColor = "#94a3b8",
+  bbLowerColor = "#4ade80",
+  zoomed = false,
+}: BollingerChartProps) {
   const chartData = data.map((d) => ({
     date: format(new Date(d.date), "MM/dd"),
     close: d.close,
     bbUpper: d.bbUpper,
     bbMiddle: d.bbMiddle,
     bbLower: d.bbLower,
-    bandWidth: d.bbUpper - d.bbLower,
   }));
 
   const CustomTooltip = ({ active, payload, label }: any) => {
@@ -41,13 +54,15 @@ export function BollingerChart({ data, currentPrice, currency, isTouchingLowerBa
     return (
       <div className="glass-panel p-3 rounded-lg border border-white/10 text-xs font-mono space-y-1">
         <p className="text-muted-foreground mb-1">{label}</p>
-        <p className="text-foreground">종가: <span className="text-primary">{fmtPrice(d.close, currency)}</span></p>
-        <p className="text-red-400">상단: {fmtPrice(d.bbUpper, currency)}</p>
-        <p className="text-slate-400">중심: {fmtPrice(d.bbMiddle, currency)}</p>
-        <p className="text-green-400">하단: {fmtPrice(d.bbLower, currency)}</p>
+        <p style={{ color: priceColor }}>종가: {fmtPrice(d.close, currency)}</p>
+        <p style={{ color: bbUpperColor }}>상단: {fmtPrice(d.bbUpper, currency)}</p>
+        <p style={{ color: bbMiddleColor }}>중심: {fmtPrice(d.bbMiddle, currency)}</p>
+        <p style={{ color: bbLowerColor }}>하단: {fmtPrice(d.bbLower, currency)}</p>
       </div>
     );
   };
+
+  const h = zoomed ? 400 : 180;
 
   return (
     <div className="mt-1">
@@ -59,67 +74,95 @@ export function BollingerChart({ data, currentPrice, currency, isTouchingLowerBa
           </span>
         )}
       </div>
-      <div className="h-[180px] w-full">
+
+      <div style={{ height: h }} className="w-full">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
             <defs>
-              <linearGradient id="bbBand" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#6366f1" stopOpacity={0.15} />
-                <stop offset="95%" stopColor="#6366f1" stopOpacity={0.03} />
+              <linearGradient id="bbBandFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={bbUpperColor} stopOpacity={0.12} />
+                <stop offset="95%" stopColor={bbUpperColor} stopOpacity={0.02} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted))" vertical={false} opacity={0.4} />
-            <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={10} tickMargin={6} minTickGap={20} fontFamily="monospace" />
-            <YAxis stroke="hsl(var(--muted-foreground))" fontSize={10} tickFormatter={(v) => fmtPrice(v, currency)} width={currency === "KRW" ? 55 : 45} fontFamily="monospace" />
-            <Tooltip content={<CustomTooltip />} cursor={{ stroke: "hsl(var(--muted-foreground))", strokeDasharray: "3 3" }} />
+            <CartesianGrid
+              strokeDasharray="3 3"
+              stroke="hsl(var(--muted))"
+              vertical={false}
+              opacity={0.4}
+            />
+            <XAxis
+              dataKey="date"
+              stroke="hsl(var(--muted-foreground))"
+              fontSize={zoomed ? 12 : 10}
+              tickMargin={6}
+              minTickGap={20}
+              fontFamily="monospace"
+            />
+            <YAxis
+              stroke="hsl(var(--muted-foreground))"
+              fontSize={zoomed ? 12 : 10}
+              tickFormatter={(v) => fmtPrice(v, currency)}
+              width={currency === "KRW" ? 55 : 45}
+              fontFamily="monospace"
+            />
+            <Tooltip
+              content={<CustomTooltip />}
+              cursor={{ stroke: "hsl(var(--muted-foreground))", strokeDasharray: "3 3" }}
+            />
 
-            {/* Band fill between upper and lower */}
             <Area
               dataKey="bbUpper"
-              stroke="#818cf8"
+              stroke={bbUpperColor}
               strokeWidth={1}
-              fill="url(#bbBand)"
+              fill="url(#bbBandFill)"
               dot={false}
               activeDot={false}
             />
             <Area
               dataKey="bbLower"
-              stroke="#4ade80"
+              stroke={bbLowerColor}
               strokeWidth={1}
               fill="white"
               fillOpacity={0}
               dot={false}
               activeDot={false}
             />
-
-            {/* Middle band */}
             <Line
               dataKey="bbMiddle"
-              stroke="#94a3b8"
+              stroke={bbMiddleColor}
               strokeWidth={1}
               strokeDasharray="4 2"
               dot={false}
               activeDot={false}
             />
-
-            {/* Price line */}
             <Line
               dataKey="close"
-              stroke="#38bdf8"
+              stroke={priceColor}
               strokeWidth={2}
               dot={false}
-              activeDot={{ r: 3, fill: "#38bdf8" }}
+              activeDot={{ r: 3, fill: priceColor }}
             />
           </ComposedChart>
         </ResponsiveContainer>
       </div>
 
-      {/* Legend */}
       <div className="flex items-center gap-3 mt-1 text-[10px] font-mono text-muted-foreground/70">
-        <span className="flex items-center gap-1"><span className="inline-block w-3 h-0.5 bg-sky-400" />종가</span>
-        <span className="flex items-center gap-1"><span className="inline-block w-3 h-0.5 bg-indigo-400" />상단</span>
-        <span className="flex items-center gap-1"><span className="inline-block w-3 h-0.5 bg-slate-400 opacity-60" style={{backgroundImage:'repeating-linear-gradient(to right, #94a3b8 0, #94a3b8 4px, transparent 4px, transparent 6px)'}} />중심</span>
-        <span className="flex items-center gap-1"><span className="inline-block w-3 h-0.5 bg-green-400" />하단</span>
+        <span className="flex items-center gap-1">
+          <span className="inline-block w-3 h-0.5" style={{ backgroundColor: priceColor }} />
+          종가
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="inline-block w-3 h-0.5" style={{ backgroundColor: bbUpperColor }} />
+          상단
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="inline-block w-3 h-0.5 opacity-60" style={{ backgroundColor: bbMiddleColor }} />
+          중심
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="inline-block w-3 h-0.5" style={{ backgroundColor: bbLowerColor }} />
+          하단
+        </span>
       </div>
     </div>
   );

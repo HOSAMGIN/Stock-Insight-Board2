@@ -5,10 +5,12 @@ import { StockCard } from "@/components/StockCard";
 import { SuperBuyAlert } from "@/components/SuperBuyAlert";
 import { AddSymbolModal } from "@/components/AddSymbolModal";
 import { CustomSymbolCard } from "@/components/CustomSymbolCard";
+import { SettingsPanel } from "@/components/SettingsPanel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCustomSymbols } from "@/hooks/useCustomSymbols";
+import { ChartSettingsProvider } from "@/context/ChartSettingsContext";
 import { format } from "date-fns";
-import { Clock, AlertTriangle, TerminalSquare, Globe, Building2, TrendingUp, TrendingDown, Star, Zap, Plus, Bookmark, X } from "lucide-react";
+import { Clock, AlertTriangle, TerminalSquare, Globe, Building2, TrendingUp, TrendingDown, Star, Zap, Plus, Bookmark, X, SlidersHorizontal } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const CATEGORY_META = {
@@ -47,6 +49,7 @@ export default function Dashboard() {
   const [lastAlertKey, setLastAlertKey] = useState("");
   const [testAlertVisible, setTestAlertVisible] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const { symbols: customSymbols, addSymbol, removeSymbol } = useCustomSymbols();
 
   const { data, isLoading, isError, error, isFetching } = useGetStocks({
@@ -104,6 +107,7 @@ export default function Dashboard() {
   let cardIndex = 0;
 
   return (
+    <ChartSettingsProvider>
     <div className="min-h-screen relative bg-background pb-20">
       {/* Global super buy alert */}
       {showAlert && (
@@ -127,6 +131,13 @@ export default function Dashboard() {
             onAdd={addSymbol}
             existing={customSymbols}
           />
+        )}
+      </AnimatePresence>
+
+      {/* Chart settings panel */}
+      <AnimatePresence>
+        {showSettings && (
+          <SettingsPanel onClose={() => setShowSettings(false)} />
         )}
       </AnimatePresence>
 
@@ -168,6 +179,14 @@ export default function Dashboard() {
             >
               <Plus className="w-3.5 h-3.5" />
               종목 추가
+            </button>
+
+            <button
+              onClick={() => setShowSettings(true)}
+              className="flex items-center gap-1.5 text-xs font-mono px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-muted-foreground hover:text-foreground hover:border-white/20 hover:bg-white/8 transition-colors"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+              차트 설정
             </button>
 
             <button
@@ -395,5 +414,6 @@ export default function Dashboard() {
         </div>
       </div>
     </div>
+    </ChartSettingsProvider>
   );
 }

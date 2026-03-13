@@ -7,9 +7,22 @@ import { BollingerChart } from "@/components/BollingerChart";
 import { MacdChart } from "@/components/MacdChart";
 import { MaCrossChart } from "@/components/MaCrossChart";
 import { BodyPositionGauge } from "@/components/BodyPositionGauge";
+import { ZoomableChart } from "@/components/ZoomModal";
+import { useChartSettingsContext } from "@/context/ChartSettingsContext";
 import { formatPrice, formatPercent, formatVolume } from "@/lib/utils";
 import type { StockData } from "@workspace/api-client-react";
-import { ArrowUpRight, ArrowDownRight, Activity, BarChart2, ChevronDown, ChevronUp, Zap, Star, TrendingUp, TrendingDown } from "lucide-react";
+import {
+  ArrowUpRight,
+  ArrowDownRight,
+  Activity,
+  BarChart2,
+  ChevronDown,
+  ChevronUp,
+  Zap,
+  Star,
+  TrendingUp,
+  TrendingDown,
+} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface StockCardProps {
@@ -19,6 +32,8 @@ interface StockCardProps {
 
 export function StockCard({ data, index }: StockCardProps) {
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const { colors, order } = useChartSettingsContext();
+
   const isUp = data.changePercent > 0;
   const ChangeIcon = isUp ? ArrowUpRight : ArrowDownRight;
   const isIndex = data.category === "indices";
@@ -34,6 +49,158 @@ export function StockCard({ data, index }: StockCardProps) {
     if (signal === "buy") return "매수 적기";
     if (signal === "sell") return "매도 검토";
     return "중립";
+  };
+
+  // ── Indicator renderers (keyed by ID) ──────────────────────────────────
+  const basicIndicators: Record<string, React.ReactNode> = {
+    rsi: (
+      <div key="rsi" className="mt-5 space-y-2">
+        <div className="flex justify-between items-end">
+          <span className="text-xs font-medium text-muted-foreground">RSI 지수 현황</span>
+          <span className="text-xs font-mono text-muted-foreground">
+            {data.rsi14 < 30 ? "과매도" : data.rsi14 > 70 ? "과매수" : "정상 범위"}
+          </span>
+        </div>
+        <ZoomableChart
+          title="RSI (14)"
+          extra={
+            <p className="text-sm font-mono text-muted-foreground">
+              현재값:{" "}
+              <span className="text-foreground font-bold text-lg">{data.rsi14.toFixed(2)}</span>
+            </p>
+          }
+        >
+          {(zoomed) => (
+            <RsiGauge
+              value={data.rsi14}
+              oversoldColor={colors.rsiOversoldColor}
+              neutralColor={colors.rsiNeutralColor}
+              overboughtColor={colors.rsiOverboughtColor}
+              zoomed={zoomed}
+            />
+          )}
+        </ZoomableChart>
+      </div>
+    ),
+
+    deviation: (
+      <div key="deviation" className="mt-6">
+        <ZoomableChart
+          title={`MA20 이격도 — ${data.displaySymbol}`}
+          extra={
+            <p className="text-sm font-mono text-muted-foreground">
+              현재:{" "}
+              <span
+                className="font-bold"
+                style={{ color: data.ma20DeviationPercent > 0 ? colors.deviationUpColor : colors.deviationDownColor }}
+              >
+                {formatPercent(data.ma20DeviationPercent)}
+              </span>
+            </p>
+          }
+        >
+          {(zoomed) => (
+            <>
+              {!zoomed && (
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-xs font-medium text-muted-foreground">MA20 이격도 (최근 30일)</span>
+                  <div className="font-mono text-xs">
+                    현재:{" "}
+                    <span
+                      style={{
+                        color:
+                          data.ma20DeviationPercent > 0
+                            ? colors.deviationUpColor
+                            : colors.deviationDownColor,
+                      }}
+                    >
+                      {formatPercent(data.ma20DeviationPercent)}
+                    </span>
+                  </div>
+                </div>
+              )}
+              <DeviationChart
+                data={data.historicalPrices}
+                symbol={data.displaySymbol}
+                upColor={colors.deviationUpColor}
+                downColor={colors.deviationDownColor}
+                zoomed={zoomed}
+              />
+            </>
+          )}
+        </ZoomableChart>
+      </div>
+    ),
+
+    body: (
+      <div key="body">
+        <BodyPositionGauge
+          historicalPrices={data.historicalPrices}
+          currentPrice={data.currentPrice}
+          rsi14={data.rsi14}
+        />
+      </div>
+    ),
+  };
+
+  const advancedIndicators: Record<string, React.ReactNode> = {
+    macross: (
+      <div key="macross">
+        <ZoomableChart title={`MA 크로스 — ${data.displaySymbol}`}>
+          {(zoomed) => (
+            <MaCrossChart
+              data={data.historicalPrices}
+              currency={currency}
+              crossSignal={data.crossSignal}
+              priceColor={colors.priceColor}
+              ma20Color={colors.ma20Color}
+              ma60Color={colors.ma60Color}
+              zoomed={zoomed}
+            />
+          )}
+        </ZoomableChart>
+      </div>
+    ),
+
+    bollinger: (
+      <div key="bollinger" className="border-t border-white/5 pt-4">
+        <ZoomableChart title={`볼린저 밴드 — ${data.displaySymbol}`}>
+          {(zoomed) => (
+            <BollingerChart
+              data={data.historicalPrices}
+              currentPrice={data.currentPrice}
+              currency={currency}
+              isTouchingLowerBand={data.isTouchingLowerBand}
+              priceColor={colors.priceColor}
+              bbUpperColor={colors.bbUpperColor}
+              bbMiddleColor={colors.bbMiddleColor}
+              bbLowerColor={colors.bbLowerColor}
+              zoomed={zoomed}
+            />
+          )}
+        </ZoomableChart>
+      </div>
+    ),
+
+    macd: (
+      <div key="macd" className="border-t border-white/5 pt-4">
+        <ZoomableChart title={`MACD — ${data.displaySymbol}`}>
+          {(zoomed) => (
+            <MacdChart
+              data={data.historicalPrices}
+              macdLine={data.macdLine}
+              signalLine={data.signalLine}
+              macdHistogram={data.macdHistogram}
+              macdLineColor={colors.macdLineColor}
+              macdSignalColor={colors.macdSignalColor}
+              macdBullColor={colors.macdBullColor}
+              macdBearColor={colors.macdBearColor}
+              zoomed={zoomed}
+            />
+          )}
+        </ZoomableChart>
+      </div>
+    ),
   };
 
   return (
@@ -55,7 +222,7 @@ export function StockCard({ data, index }: StockCardProps) {
             : "border-t-transparent hover:border-t-primary/50"
         }`}
       >
-        {/* Best timing banner (RSI < 30 + golden cross) */}
+        {/* Banners */}
         {data.isBestTiming && (
           <motion.div
             className="bg-amber-500/15 border-b border-amber-500/30 px-4 py-1.5 flex items-center gap-2"
@@ -68,8 +235,6 @@ export function StockCard({ data, index }: StockCardProps) {
             </span>
           </motion.div>
         )}
-
-        {/* Super buy signal banner */}
         {data.isSuperBuySignal && !data.isBestTiming && (
           <motion.div
             className="bg-green-500/15 border-b border-green-500/30 px-4 py-1.5 flex items-center gap-2"
@@ -82,29 +247,21 @@ export function StockCard({ data, index }: StockCardProps) {
             </span>
           </motion.div>
         )}
-
-        {/* Golden cross banner */}
         {data.crossSignal === "golden" && !data.isBestTiming && (
-          <motion.div
-            className="bg-emerald-500/10 border-b border-emerald-500/20 px-4 py-1 flex items-center gap-2"
-          >
+          <div className="bg-emerald-500/10 border-b border-emerald-500/20 px-4 py-1 flex items-center gap-2">
             <TrendingUp className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
             <span className="text-[11px] font-bold font-mono text-emerald-400 tracking-wide">
               추세 전환: 강력 매수 신호 — 골든크로스
             </span>
-          </motion.div>
+          </div>
         )}
-
-        {/* Dead cross banner */}
         {data.crossSignal === "dead" && (
-          <motion.div
-            className="bg-red-500/10 border-b border-red-500/20 px-4 py-1 flex items-center gap-2"
-          >
+          <div className="bg-red-500/10 border-b border-red-500/20 px-4 py-1 flex items-center gap-2">
             <TrendingDown className="w-3.5 h-3.5 text-red-400 shrink-0" />
             <span className="text-[11px] font-bold font-mono text-red-400 tracking-wide">
               하락 추세: 주의 — 데드크로스
             </span>
-          </motion.div>
+          </div>
         )}
 
         <CardHeader className="pb-2">
@@ -115,11 +272,14 @@ export function StockCard({ data, index }: StockCardProps) {
                   {data.displaySymbol}
                 </h2>
                 {data.isBestTiming && (
-                  <span title="베스트 타이밍: 골든크로스 + RSI 과매도">
+                  <span title="베스트 타이밍">
                     <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
                   </span>
                 )}
-                <Badge variant={getRsiBadgeVariant(data.rsiSignal)} className="font-sans px-2 text-xs">
+                <Badge
+                  variant={getRsiBadgeVariant(data.rsiSignal)}
+                  className="font-sans px-2 text-xs"
+                >
                   {getRsiLabel(data.rsiSignal)}
                 </Badge>
                 {data.crossSignal === "golden" && (
@@ -140,7 +300,11 @@ export function StockCard({ data, index }: StockCardProps) {
                 {formatPrice(data.currentPrice, currency)}
               </div>
               <div className="text-xs text-muted-foreground font-mono">{currency}</div>
-              <div className={`flex items-center justify-end font-mono text-sm mt-0.5 ${isUp ? "text-up" : "text-down"}`}>
+              <div
+                className={`flex items-center justify-end font-mono text-sm mt-0.5 ${
+                  isUp ? "text-up" : "text-down"
+                }`}
+              >
                 <ChangeIcon className="w-3.5 h-3.5 mr-0.5" />
                 {formatPercent(data.changePercent)}
               </div>
@@ -167,48 +331,23 @@ export function StockCard({ data, index }: StockCardProps) {
             </div>
           </div>
 
-          {/* RSI Gauge */}
-          <div className="mt-5 space-y-2">
-            <div className="flex justify-between items-end">
-              <span className="text-xs font-medium text-muted-foreground">RSI 지수 현황</span>
-              <span className="text-xs font-mono text-muted-foreground">
-                {data.rsi14 < 30 ? "과매도" : data.rsi14 > 70 ? "과매수" : "정상 범위"}
-              </span>
-            </div>
-            <RsiGauge value={data.rsi14} />
-          </div>
-
-          {/* MA20 Deviation chart */}
-          <div className="mt-6">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-xs font-medium text-muted-foreground">MA20 이격도 (최근 30일)</span>
-              <div className="font-mono text-xs">
-                현재:{" "}
-                <span className={data.ma20DeviationPercent > 0 ? "text-up" : "text-down"}>
-                  {formatPercent(data.ma20DeviationPercent)}
-                </span>
-              </div>
-            </div>
-            <DeviationChart data={data.historicalPrices} symbol={data.displaySymbol} />
-          </div>
-
-          {/* Body position gauge */}
-          <BodyPositionGauge
-            historicalPrices={data.historicalPrices}
-            currentPrice={data.currentPrice}
-            rsi14={data.rsi14}
-          />
+          {/* Basic indicators — rendered in user-defined order */}
+          {order.basic.map((id) => basicIndicators[id] ?? null)}
 
           {/* Advanced charts toggle */}
           <button
             onClick={() => setShowAdvanced((v) => !v)}
             className="w-full mt-5 flex items-center justify-center gap-1.5 text-xs font-mono text-muted-foreground/70 hover:text-muted-foreground transition-colors py-2 rounded-lg border border-white/5 hover:border-white/10 hover:bg-white/3"
           >
-            {showAdvanced ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+            {showAdvanced ? (
+              <ChevronUp className="w-3.5 h-3.5" />
+            ) : (
+              <ChevronDown className="w-3.5 h-3.5" />
+            )}
             {showAdvanced ? "고급 지표 접기" : "볼린저 밴드 · MACD 보기"}
           </button>
 
-          {/* Advanced charts (collapsible) */}
+          {/* Advanced indicators — rendered in user-defined order */}
           <AnimatePresence>
             {showAdvanced && (
               <motion.div
@@ -219,32 +358,7 @@ export function StockCard({ data, index }: StockCardProps) {
                 className="overflow-hidden"
               >
                 <div className="mt-4 space-y-6 pt-4 border-t border-white/5">
-                  {/* MA Cross chart */}
-                  <MaCrossChart
-                    data={data.historicalPrices}
-                    currency={currency}
-                    crossSignal={data.crossSignal}
-                  />
-
-                  {/* Bollinger Bands */}
-                  <div className="border-t border-white/5 pt-4">
-                    <BollingerChart
-                      data={data.historicalPrices}
-                      currentPrice={data.currentPrice}
-                      currency={currency}
-                      isTouchingLowerBand={data.isTouchingLowerBand}
-                    />
-                  </div>
-
-                  {/* MACD */}
-                  <div className="border-t border-white/5 pt-4">
-                    <MacdChart
-                      data={data.historicalPrices}
-                      macdLine={data.macdLine}
-                      signalLine={data.signalLine}
-                      macdHistogram={data.macdHistogram}
-                    />
-                  </div>
+                  {order.advanced.map((id) => advancedIndicators[id] ?? null)}
                 </div>
               </motion.div>
             )}
