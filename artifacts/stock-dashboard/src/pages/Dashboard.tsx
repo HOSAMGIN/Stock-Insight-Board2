@@ -54,6 +54,7 @@ export default function Dashboard() {
 
   const { data, isLoading, isError, error, isFetching } = useGetStocks({
     query: {
+      queryKey: ['stocks'],
       refetchInterval: 60000,
       refetchOnWindowFocus: true,
     },
