@@ -3,10 +3,13 @@ import { useGetStocks } from "@workspace/api-client-react";
 import type { StockData } from "@workspace/api-client-react";
 import { StockCard } from "@/components/StockCard";
 import { SuperBuyAlert } from "@/components/SuperBuyAlert";
+import { AddSymbolModal } from "@/components/AddSymbolModal";
+import { CustomSymbolCard } from "@/components/CustomSymbolCard";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useCustomSymbols } from "@/hooks/useCustomSymbols";
 import { format } from "date-fns";
-import { Clock, AlertTriangle, TerminalSquare, Globe, Building2, TrendingUp, TrendingDown, Star, Zap } from "lucide-react";
-import { motion } from "framer-motion";
+import { Clock, AlertTriangle, TerminalSquare, Globe, Building2, TrendingUp, TrendingDown, Star, Zap, Plus, Bookmark, X } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 const CATEGORY_META = {
   "us-stocks": { label: "🇺🇸 미국 주식", icon: Globe, cols: "xl:grid-cols-4" },
@@ -43,6 +46,8 @@ export default function Dashboard() {
   const [alertDismissed, setAlertDismissed] = useState(false);
   const [lastAlertKey, setLastAlertKey] = useState("");
   const [testAlertVisible, setTestAlertVisible] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const { symbols: customSymbols, addSymbol, removeSymbol } = useCustomSymbols();
 
   const { data, isLoading, isError, error, isFetching } = useGetStocks({
     query: {
@@ -114,6 +119,17 @@ export default function Dashboard() {
         />
       )}
 
+      {/* Add symbol modal */}
+      <AnimatePresence>
+        {showAddModal && (
+          <AddSymbolModal
+            onClose={() => setShowAddModal(false)}
+            onAdd={addSymbol}
+            existing={customSymbols}
+          />
+        )}
+      </AnimatePresence>
+
       <div className="absolute inset-0 z-0">
         <img
           src={`${import.meta.env.BASE_URL}images/terminal-bg.png`}
@@ -146,6 +162,14 @@ export default function Dashboard() {
           </motion.div>
 
           <div className="flex items-center gap-3 flex-wrap justify-end">
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="flex items-center gap-1.5 text-xs font-mono px-3 py-2 rounded-lg border border-primary/30 bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              종목 추가
+            </button>
+
             <button
               onClick={() => setTestAlertVisible(true)}
               className="text-xs font-mono px-3 py-2 rounded-lg border border-green-500/30 bg-green-500/10 text-green-400 hover:bg-green-500/20 transition-colors"
@@ -251,6 +275,74 @@ export default function Dashboard() {
                 <p className="text-xs font-mono text-muted-foreground/50">해당 종목 없음</p>
               )}
             </div>
+          </motion.div>
+        )}
+
+        {/* Custom Watchlist Section */}
+        <AnimatePresence>
+          {customSymbols.length > 0 && (
+            <motion.section
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3 }}
+              className="mb-12"
+            >
+              <div className="flex items-center gap-2 mb-5">
+                <Bookmark className="w-4 h-4 text-primary" />
+                <h2 className="text-sm font-mono font-semibold text-muted-foreground uppercase tracking-widest">
+                  ⭐ 내 관심 종목
+                </h2>
+                <span className="text-xs font-mono text-muted-foreground/50 bg-white/5 border border-white/8 rounded-full px-2 py-0.5">
+                  {customSymbols.length}
+                </span>
+                <div className="flex-1 h-px bg-white/5 ml-2" />
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  className="flex items-center gap-1 text-[11px] font-mono text-primary/70 hover:text-primary transition-colors px-2 py-1 rounded-lg hover:bg-primary/10 border border-transparent hover:border-primary/20"
+                >
+                  <Plus className="w-3 h-3" />
+                  추가
+                </button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
+                {customSymbols.map((sym, i) => (
+                  <CustomSymbolCard
+                    key={sym}
+                    symbol={sym}
+                    index={i}
+                    onRemove={removeSymbol}
+                  />
+                ))}
+              </div>
+            </motion.section>
+          )}
+        </AnimatePresence>
+
+        {/* Empty watchlist CTA */}
+        {customSymbols.length === 0 && !isLoading && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.5 }}
+            className="mb-10"
+          >
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="w-full glass-panel rounded-xl border border-dashed border-white/10 hover:border-primary/30 transition-colors p-5 flex items-center justify-center gap-3 group"
+            >
+              <div className="p-2 rounded-lg bg-white/5 group-hover:bg-primary/10 transition-colors">
+                <Plus className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+              </div>
+              <div className="text-left">
+                <p className="text-sm font-mono text-muted-foreground group-hover:text-foreground transition-colors">
+                  관심 종목 추가하기
+                </p>
+                <p className="text-xs text-muted-foreground/50 font-mono">
+                  AAPL, MSFT, 삼성 등 원하는 종목을 추가하세요
+                </p>
+              </div>
+            </button>
           </motion.div>
         )}
 

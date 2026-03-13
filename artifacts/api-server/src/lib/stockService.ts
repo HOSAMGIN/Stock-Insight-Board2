@@ -362,6 +362,10 @@ async function fetchStockData(symbol: string): Promise<StockData> {
 let cache: { data: StockData[]; fetchedAt: number } | null = null;
 const CACHE_TTL_MS = 60 * 1000;
 
+// Separate cache for dynamically-requested symbols (e.g. user watchlist)
+const dynamicCache = new Map<string, { data: StockData; fetchedAt: number }>();
+const DYNAMIC_CACHE_TTL_MS = 120 * 1000;
+
 export async function getAllStocks(): Promise<StockData[]> {
   const now = Date.now();
   if (cache && now - cache.fetchedAt < CACHE_TTL_MS) return cache.data;
@@ -380,15 +384,30 @@ export async function getAllStocks(): Promise<StockData[]> {
 }
 
 export async function getStockBySymbol(symbol: string): Promise<StockData | null> {
+  // First look in the main cache (predefined symbols)
   const all = await getAllStocks();
-  return (
-    all.find(
-      (s) =>
-        s.symbol === symbol ||
-        s.symbol.toUpperCase() === symbol.toUpperCase() ||
-        s.displaySymbol === symbol
-    ) ?? null
+  const found = all.find(
+    (s) =>
+      s.symbol === symbol ||
+      s.symbol.toUpperCase() === symbol.toUpperCase() ||
+      s.displaySymbol === symbol
   );
+  if (found) return found;
+
+  // Not a predefined symbol — try dynamic fetch with its own cache
+  const cacheKey = symbol.toUpperCase();
+  const now = Date.now();
+  const cached = dynamicCache.get(cacheKey);
+  if (cached && now - cached.fetchedAt < DYNAMIC_CACHE_TTL_MS) return cached.data;
+
+  try {
+    const data = await fetchStockData(symbol);
+    dynamicCache.set(cacheKey, { data, fetchedAt: now });
+    return data;
+  } catch (err) {
+    console.error(`Dynamic fetch failed for ${symbol}:`, err);
+    return null;
+  }
 }
 
 export { SYMBOLS };
