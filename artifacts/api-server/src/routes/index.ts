@@ -1,3 +1,6 @@
+import newsRouter from "./news";
+// ...
+router.use(newsRouter);
 import { Router, type IRouter } from "express";
 import healthRouter from "./health";
 import stocksRouter from "./stocks";
