@@ -1,6 +1,10 @@
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useStockNews } from "@/hooks/useStockNews";
+import { Newspaper, BarChart2 as ChartIcon, ExternalLink, Clock } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { RsiGauge } from "@/components/RsiGauge";
 import { DeviationChart } from "@/components/DeviationChart";
 import { BollingerChart } from "@/components/BollingerChart";
@@ -32,7 +36,14 @@ interface StockCardProps {
 
 export function StockCard({ data, index }: StockCardProps) {
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [activeTab, setActiveTab] = useState<"chart" | "news">("chart");
   const { colors, order } = useChartSettingsContext();
+
+  // 뉴스는 탭을 열 때만 fetch
+  const { data: newsData, isLoading: newsLoading, isError: newsError } = useStockNews(
+    data.symbol,
+    activeTab === "news"
+  );
 
   const isUp = data.changePercent > 0;
   const ChangeIcon = isUp ? ArrowUpRight : ArrowDownRight;
@@ -331,38 +342,123 @@ export function StockCard({ data, index }: StockCardProps) {
             </div>
           </div>
 
-          {/* Basic indicators — rendered in user-defined order */}
-          {order.basic.map((id) => basicIndicators[id] ?? null)}
-
-          {/* Advanced charts toggle */}
-          <button
-            onClick={() => setShowAdvanced((v) => !v)}
-            className="w-full mt-5 flex items-center justify-center gap-1.5 text-xs font-mono text-muted-foreground/70 hover:text-muted-foreground transition-colors py-2 rounded-lg border border-white/5 hover:border-white/10 hover:bg-white/3"
+          {/* 차트 / 뉴스 탭 */}
+          <Tabs
+            value={activeTab}
+            onValueChange={(v) => setActiveTab(v as "chart" | "news")}
+            className="mt-4"
           >
-            {showAdvanced ? (
-              <ChevronUp className="w-3.5 h-3.5" />
-            ) : (
-              <ChevronDown className="w-3.5 h-3.5" />
-            )}
-            {showAdvanced ? "고급 지표 접기" : "볼린저 밴드 · MACD 보기"}
-          </button>
+            <TabsList className="w-full h-8 bg-background/50 border border-white/5">
+              <TabsTrigger value="chart" className="flex-1 text-xs font-mono gap-1.5 h-full">
+                <ChartIcon className="w-3 h-3" /> 차트
+              </TabsTrigger>
+              <TabsTrigger value="news" className="flex-1 text-xs font-mono gap-1.5 h-full">
+                <Newspaper className="w-3 h-3" /> 뉴스
+              </TabsTrigger>
+            </TabsList>
 
-          {/* Advanced indicators — rendered in user-defined order */}
-          <AnimatePresence>
-            {showAdvanced && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.3 }}
-                className="overflow-hidden"
+            {/* 차트 탭 */}
+            <TabsContent value="chart" className="mt-0">
+              {order.basic.map((id) => basicIndicators[id] ?? null)}
+
+              <button
+                onClick={() => setShowAdvanced((v) => !v)}
+                className="w-full mt-5 flex items-center justify-center gap-1.5 text-xs font-mono text-muted-foreground/70 hover:text-muted-foreground transition-colors py-2 rounded-lg border border-white/5 hover:border-white/10 hover:bg-white/3"
               >
-                <div className="mt-4 space-y-6 pt-4 border-t border-white/5">
-                  {order.advanced.map((id) => advancedIndicators[id] ?? null)}
+                {showAdvanced ? (
+                  <ChevronUp className="w-3.5 h-3.5" />
+                ) : (
+                  <ChevronDown className="w-3.5 h-3.5" />
+                )}
+                {showAdvanced ? "고급 지표 접기" : "볼린저 밴드 · MACD 보기"}
+              </button>
+
+              <AnimatePresence>
+                {showAdvanced && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="mt-4 space-y-6 pt-4 border-t border-white/5">
+                      {order.advanced.map((id) => advancedIndicators[id] ?? null)}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </TabsContent>
+
+            {/* 뉴스 탭 */}
+            <TabsContent value="news" className="mt-3">
+              {newsLoading && (
+                <div className="space-y-3">
+                  {[...Array(4)].map((_, i) => (
+                    <div key={i} className="space-y-1.5 p-3 rounded-lg border border-white/5">
+                      <Skeleton className="h-3.5 w-full" />
+                      <Skeleton className="h-3.5 w-3/4" />
+                      <Skeleton className="h-3 w-24" />
+                    </div>
+                  ))}
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+              )}
+
+              {newsError && (
+                <div className="text-xs font-mono text-destructive/70 text-center py-6">
+                  뉴스를 불러오지 못했습니다.
+                </div>
+              )}
+
+              {!newsLoading && !newsError && (!newsData || newsData.length === 0) && (
+                <div className="text-xs font-mono text-muted-foreground/50 text-center py-6">
+                  관련 뉴스가 없습니다.
+                </div>
+              )}
+
+              {!newsLoading && newsData && newsData.length > 0 && (
+                <div className="space-y-2">
+                  {newsData.map((article, i) => (
+                    <a
+                      key={i}
+                      href={article.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group flex gap-3 p-2.5 rounded-lg border border-white/5 hover:border-primary/20 hover:bg-primary/5 transition-all"
+                    >
+                      {article.thumbnail && (
+                        <img
+                          src={article.thumbnail}
+                          alt=""
+                          className="w-14 h-14 rounded object-cover shrink-0 opacity-80 group-hover:opacity-100 transition-opacity"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                        />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium leading-snug text-foreground/90 group-hover:text-foreground line-clamp-2 transition-colors">
+                          {article.title}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1.5 text-[10px] font-mono text-muted-foreground/60">
+                          <span className="truncate">{article.publisher}</span>
+                          <span>·</span>
+                          <Clock className="w-2.5 h-2.5 shrink-0" />
+                          <span className="shrink-0">
+                            {new Date(article.publishedAt).toLocaleDateString("ko-KR", {
+                              month: "short",
+                              day: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </span>
+                          <ExternalLink className="w-2.5 h-2.5 ml-auto shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
     </motion.div>
